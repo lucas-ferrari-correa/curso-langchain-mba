@@ -1,7 +1,7 @@
 from langchain.tools import tool
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.agents import create_react_agent, AgentExecutor
-from langchain.prompts import PromptTemplate
+from langchain import hub
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -31,48 +31,18 @@ def web_search_mock(query: str) -> str:
             return f"The capital of {country} is {capital}."
     return "I don't know the capital of that country."
 
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.5)
+tools = [web_search_mock]
 
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
-tools = [calculator, web_search_mock]
-
-prompt = PromptTemplate.from_template(
-"""
-Answer the following questions as best you can. You have access to the following tools.
-Only use the information you get from the tools, even if you know the answer.
-If the information is not provided by the tools, say you don't know.
-
-{tools}
-
-Use the following format:
-
-Question: the input question you must answer
-Thought: you should always think about what to do
-Action: the action to take, should be one of [{tool_names}]
-Action Input: the input to the action
-Observation: the result of the action
-
-... (this Thought/Action/Action Input/Observation can repeat N times)
-Thought: I now know the final answer
-Final Answer: the final answer to the original input question
-
-Rules:
-- If you choose an Action, do NOT include Final Answer in the same step.
-- After Action and Action Input, stop and wait for Observation.
-- Never search the internet. Only use the tools provided.
-
-Begin!
-
-Question: {input}
-Thought:{agent_scratchpad}"""
-)
+prompt = hub.pull("hwchase17/react")
 agent_chain = create_react_agent(llm, tools, prompt)
 
 agent_executor = AgentExecutor.from_agent_and_tools(
     agent=agent_chain, 
     tools=tools, 
     verbose=True, 
-    handle_parsing_errors="Invalid format. Either provide an Action with Action Input, or a Final Answer only.",
-    max_iterations=3)
+    max_iterations=5
+)
 
 print(agent_executor.invoke({"input": "What is the capital of Iran?"}))
 # print(agent_executor.invoke({"input": "How much is 10 + 10?"}))
